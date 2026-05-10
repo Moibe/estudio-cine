@@ -27,3 +27,6 @@ vite.config.ts.timestamp-*
 *.db-journal
 *.db-shm
 *.db-wal
+
+# Uploaded files (data — never committed)
+/uploads

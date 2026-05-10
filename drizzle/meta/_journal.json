@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1778422488608,
+      "tag": "0000_baseline",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1778422530357,
+      "tag": "0001_add_position_to_proyectos",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1778424566828,
+      "tag": "0002_add_scripts_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1778426929441,
+      "tag": "0003_add_escenas_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1778434208922,
+      "tag": "0004_add_titulo_to_escenas",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1778441616919,
+      "tag": "0005_add_acto_fields_to_escenas",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1778443287484,
+      "tag": "0006_normalize_actos_personajes_escenarios",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1778444000000,
+      "tag": "0007_rename_to_participaciones",
+      "breakpoints": true
+    }
+  ]
+}

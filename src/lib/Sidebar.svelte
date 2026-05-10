@@ -1,11 +1,13 @@
 <script lang="ts">
   import { page } from '$app/state';
   import {
-    Clapperboard,
     ChevronLeft,
     ChevronRight,
     ChevronUp,
-    ChevronDown
+    ChevronDown,
+    Users,
+    Map,
+    BookOpen
   } from '@lucide/svelte';
 
   type Orientation = 'vertical' | 'horizontal';
@@ -22,11 +24,55 @@
     toggleCollapsed: () => void;
   } = $props();
 
+  type SidebarEscena = {
+    id: number;
+    numero: number;
+    titulo: string;
+    encabezado: string;
+    actoNumero: number;
+    actoTitulo: string;
+  };
+  type SidebarActo = { numero: number; titulo: string; escenas: SidebarEscena[] };
+  type SidebarProyecto = { id: number; titulo: string };
+
   const isActive = (href: string) =>
     page.url.pathname === href || page.url.pathname.startsWith(href + '/');
 
+  const proyectoCtx = $derived(
+    (page.data as { proyecto?: { id: number; titulo: string } }).proyecto
+  );
+  const escenasInCtx = $derived(
+    ((page.data as { escenas?: SidebarEscena[] }).escenas ?? []) as SidebarEscena[]
+  );
+  const proyectosList = $derived(
+    ((page.data as { proyectos?: SidebarProyecto[] }).proyectos ?? []) as SidebarProyecto[]
+  );
+  const onProyectosIndex = $derived(
+    page.url.pathname === '/proyectos' || page.url.pathname === '/proyectos/'
+  );
+
+  const actosInCtx: SidebarActo[] = $derived.by(() => {
+    const groups = new Map<number, SidebarActo>();
+    for (const e of escenasInCtx) {
+      let g = groups.get(e.actoNumero);
+      if (!g) {
+        g = { numero: e.actoNumero, titulo: e.actoTitulo, escenas: [] };
+        groups.set(e.actoNumero, g);
+      }
+      g.escenas.push(e);
+    }
+    return Array.from(groups.values()).sort((a, b) => a.numero - b.numero);
+  });
+
   let tiltX = $state(0);
   let tiltY = $state(0);
+  let sidebarWidth = $state(240);
+
+  $effect(() => {
+    if (typeof document !== 'undefined' && orientation === 'vertical' && !collapsed) {
+      document.documentElement.style.setProperty('--sidebar-width', `${sidebarWidth}px`);
+    }
+  });
 
   function handleMove(e: MouseEvent) {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -42,13 +88,6 @@
     tiltY = 0;
   }
 
-  function handleDblClick(e: MouseEvent) {
-    if ((e.target as HTMLElement).closest('a, button')) return;
-    tiltX = 0;
-    tiltY = 0;
-    toggleOrientation();
-  }
-
   function handleCollapseClick(e: MouseEvent) {
     e.stopPropagation();
     tiltX = 0;
@@ -61,23 +100,59 @@
   <aside
     class="sidebar {orientation}"
     style="transform: perspective(900px) rotateX({tiltX}deg) rotateY({tiltY}deg);"
+    bind:clientWidth={sidebarWidth}
     onmousemove={handleMove}
     onmouseleave={handleLeave}
-    ondblclick={handleDblClick}
   >
-    <header class="brand">
-      <Clapperboard size={26} strokeWidth={2} />
-      <span class="brand-title">Estudio</span>
-    </header>
+    {#if proyectoCtx}
+      <header class="active-project">
+        <span class="section-label">Proyecto</span>
+        <h2 class="active-project-title">{proyectoCtx.titulo}</h2>
+      </header>
+    {/if}
 
     <nav>
-      <a
-        href="/proyectos"
-        class="nav-item"
-        aria-current={isActive('/proyectos') ? 'page' : undefined}
-      >
-        Proyectos
-      </a>
+      {#if proyectoCtx}
+        <a
+          href="/proyectos/{proyectoCtx.id}/personajes"
+          class="nav-item"
+          aria-current={isActive(`/proyectos/${proyectoCtx.id}/personajes`) ? 'page' : undefined}
+        >
+          <Users size={16} strokeWidth={2.2} />
+          <span>Personajes</span>
+        </a>
+        <a
+          href="/proyectos/{proyectoCtx.id}/escenarios"
+          class="nav-item"
+          aria-current={isActive(`/proyectos/${proyectoCtx.id}/escenarios`) ? 'page' : undefined}
+        >
+          <Map size={16} strokeWidth={2.2} />
+          <span>Escenarios</span>
+        </a>
+        <a
+          href="/proyectos/{proyectoCtx.id}/historia"
+          class="nav-item"
+          aria-current={isActive(`/proyectos/${proyectoCtx.id}/historia`) ? 'page' : undefined}
+        >
+          <BookOpen size={16} strokeWidth={2.2} />
+          <span>Historia</span>
+        </a>
+      {:else if onProyectosIndex && proyectosList.length > 0}
+        <div class="section">
+          <span class="section-label">Proyectos</span>
+          <div class="section-list">
+            {#each proyectosList as p (p.id)}
+              <a
+                href="/proyectos/{p.id}"
+                class="nav-item nav-sub"
+                aria-current={isActive(`/proyectos/${p.id}`) ? 'page' : undefined}
+              >
+                <span class="text">{p.titulo}</span>
+              </a>
+            {/each}
+          </div>
+        </div>
+      {/if}
     </nav>
 
     <div class="sidebar-footer">
@@ -121,18 +196,19 @@
     border-radius: 16px;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      0 8px 32px rgba(0, 0, 0, 0.18);
+      0 4px 16px rgba(0, 0, 0, 0.12);
     transition: transform 0.18s ease-out;
     will-change: transform;
     user-select: none;
-    view-transition-name: nav-bar;
   }
 
   .sidebar.vertical {
-    top: 1rem;
+    top: calc(2rem + var(--topnav-height, 64px));
     left: 1rem;
     bottom: 1rem;
-    width: 240px;
+    width: max-content;
+    min-width: 240px;
+    max-width: 380px;
     padding: 1.5rem 1rem;
     display: flex;
     flex-direction: column;
@@ -171,6 +247,9 @@
   .brand-title {
     font-size: 1.2rem;
     letter-spacing: 0.005em;
+    text-shadow:
+      0 0 10px rgba(255, 255, 255, 0.28),
+      0 0 24px rgba(255, 255, 255, 0.14);
   }
 
   nav {
@@ -189,13 +268,18 @@
   }
 
   .nav-item {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
     color: rgba(255, 255, 255, 0.92);
     text-decoration: none;
     font-size: 0.95rem;
     letter-spacing: 0.01em;
     border-radius: 8px;
     border: 1px solid transparent;
+    text-shadow:
+      0 0 8px rgba(255, 255, 255, 0.22),
+      0 0 18px rgba(255, 255, 255, 0.10);
     transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
   }
 
@@ -210,6 +294,83 @@
   .nav-item:hover {
     background: rgba(255, 255, 255, 0.09);
     border-color: rgba(255, 255, 255, 0.16);
+  }
+
+  .active-project {
+    padding: 0 0.95rem 1rem;
+    margin-bottom: 0.85rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .active-project .section-label {
+    padding: 0 0 0.15rem;
+  }
+
+  .active-project-title {
+    margin: 0.25rem 0 0;
+    font-size: 1.15rem;
+    color: rgba(255, 255, 255, 0.98);
+    letter-spacing: 0.005em;
+    text-shadow:
+      0 0 10px rgba(255, 255, 255, 0.28),
+      0 0 24px rgba(255, 255, 255, 0.14);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .section-secondary {
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .section-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.45);
+    padding: 0 0.95rem 0.15rem;
+  }
+
+  .section-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    overflow-y: auto;
+    max-height: 100%;
+  }
+
+  .nav-sub {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    padding: 0.5rem 0.95rem;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.78);
+    min-width: 0;
+  }
+
+  .nav-sub .num {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.78rem;
+    flex-shrink: 0;
+  }
+
+  .nav-sub .text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sidebar.horizontal .section {
+    display: none;
   }
 
   .sidebar-footer {
@@ -261,10 +422,9 @@
     border: 1px solid #fff;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      0 8px 32px rgba(0, 0, 0, 0.18);
+      0 4px 16px rgba(0, 0, 0, 0.12);
     padding: 0.55rem 0.45rem;
     z-index: 10;
-    view-transition-name: nav-bar;
   }
 
   .reveal-handle.vertical {

@@ -1,0 +1,1 @@
+ALTER TABLE `escenas` ADD `titulo` text DEFAULT '' NOT NULL;
