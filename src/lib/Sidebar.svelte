@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import { slide } from 'svelte/transition';
   import {
     ChevronLeft,
     ChevronRight,
@@ -7,7 +8,8 @@
     ChevronDown,
     Users,
     Map,
-    BookOpen
+    BookOpen,
+    Boxes
   } from '@lucide/svelte';
 
   type Orientation = 'vertical' | 'horizontal';
@@ -78,7 +80,7 @@
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     const ny = ((e.clientY - rect.top) / rect.height) * 2 - 1;
-    const MAX = 2.5;
+    const MAX = 1.2;
     tiltX = -ny * MAX;
     tiltY = nx * MAX;
   }
@@ -107,12 +109,22 @@
     {#if proyectoCtx}
       <header class="active-project">
         <span class="section-label">Proyecto</span>
-        <h2 class="active-project-title">{proyectoCtx.titulo}</h2>
+        <h2 class="active-project-title">
+          <a href="/proyectos/{proyectoCtx.id}">{proyectoCtx.titulo}</a>
+        </h2>
       </header>
     {/if}
 
     <nav>
       {#if proyectoCtx}
+        <a
+          href="/proyectos/{proyectoCtx.id}/historia"
+          class="nav-item"
+          aria-current={isActive(`/proyectos/${proyectoCtx.id}/historia`) ? 'page' : undefined}
+        >
+          <BookOpen size={16} strokeWidth={2.2} />
+          <span>Historia</span>
+        </a>
         <a
           href="/proyectos/{proyectoCtx.id}/personajes"
           class="nav-item"
@@ -130,12 +142,12 @@
           <span>Escenarios</span>
         </a>
         <a
-          href="/proyectos/{proyectoCtx.id}/historia"
+          href="/proyectos/{proyectoCtx.id}/elementos"
           class="nav-item"
-          aria-current={isActive(`/proyectos/${proyectoCtx.id}/historia`) ? 'page' : undefined}
+          aria-current={isActive(`/proyectos/${proyectoCtx.id}/elementos`) ? 'page' : undefined}
         >
-          <BookOpen size={16} strokeWidth={2.2} />
-          <span>Historia</span>
+          <Boxes size={16} strokeWidth={2.2} />
+          <span>Elementos</span>
         </a>
       {:else if onProyectosIndex && proyectosList.length > 0}
         <div class="section">
@@ -317,6 +329,19 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .active-project-title a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.18s ease, text-shadow 0.18s ease;
+  }
+
+  .active-project-title a:hover {
+    color: #fff;
+    text-shadow:
+      0 0 12px rgba(147, 197, 253, 0.55),
+      0 0 28px rgba(37, 99, 235, 0.32);
   }
 
   .section {

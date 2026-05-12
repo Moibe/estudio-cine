@@ -12,7 +12,7 @@
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     const ny = ((e.clientY - rect.top) / rect.height) * 2 - 1;
-    const MAX = 2.5;
+    const MAX = 1.2;
     tiltX = -ny * MAX;
     tiltY = nx * MAX;
   }

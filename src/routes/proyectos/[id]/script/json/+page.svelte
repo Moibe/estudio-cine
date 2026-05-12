@@ -33,11 +33,19 @@
 				especificacion: e.encabezado,
 				escenario: e.escenarioNombre,
 				descripcion: e.descripcion,
-				personajes: e.personajes
+				personajes: e.personajes.map((p) => p.nombre)
 			});
 		}
 		return {
 			titulo: '',
+			escenarios: data.escenarios.map((esc) => ({
+				nombre: esc.nombre,
+				descripcion: esc.descripcion
+			})),
+			personajes: data.personajes.map((p) => ({
+				nombre: p.nombre,
+				descripcion: p.descripcion
+			})),
 			actos: Array.from(groups.values()).sort((a, b) => a.numero - b.numero)
 		};
 	});
@@ -89,9 +97,9 @@
 
 <section class="page">
 	<div class="top-bar">
-		<a href="/proyectos/{data.proyecto.id}" class="back">
+		<a href="/proyectos/{data.proyecto.id}/historia" class="back">
 			<ArrowLeft size={16} strokeWidth={2.2} />
-			<span>{data.proyecto.titulo}</span>
+			<span>Historia</span>
 		</a>
 		{#if result}
 			<button type="button" class="save-btn" onclick={downloadJson}>

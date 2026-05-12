@@ -20,9 +20,9 @@
 </script>
 
 <section class="page">
-	<a href="/proyectos/{data.proyecto.id}" class="back">
+	<a href="/proyectos/{data.proyecto.id}/historia" class="back">
 		<ArrowLeft size={16} strokeWidth={2.2} />
-		<span>{data.proyecto.titulo}</span>
+		<span>Historia</span>
 	</a>
 
 	<header class="header">
@@ -42,9 +42,17 @@
 		</p>
 	</header>
 
-	<article class="script-content">
-		{@html data.html}
-	</article>
+	{#if data.ext === '.pdf'}
+		<iframe
+			class="script-pdf"
+			src={`/proyectos/${data.proyecto.id}/script`}
+			title={data.script.originalName}
+		></iframe>
+	{:else if data.html}
+		<article class="script-content">
+			{@html data.html}
+		</article>
+	{/if}
 </section>
 
 <style>
@@ -130,6 +138,16 @@
 		font-weight: 400;
 		line-height: 1.65;
 		font-size: 0.98rem;
+	}
+
+	.script-pdf {
+		display: block;
+		margin-top: 1.75rem;
+		width: 100%;
+		height: 80vh;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		border-radius: 14px;
+		background: rgba(255, 255, 255, 0.04);
 	}
 
 	/* Mammoth output styling — overrides for the HTML mammoth produces from .docx */

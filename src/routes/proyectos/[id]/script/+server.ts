@@ -9,8 +9,18 @@ import type { RequestHandler } from './$types';
 
 const MIME = {
 	'.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-	'.doc': 'application/msword'
+	'.doc': 'application/msword',
+	'.pdf': 'application/pdf'
 } as const;
+
+type Ext = keyof typeof MIME;
+
+function extOf(filename: string): Ext {
+	const lower = filename.toLowerCase();
+	if (lower.endsWith('.docx')) return '.docx';
+	if (lower.endsWith('.pdf')) return '.pdf';
+	return '.doc';
+}
 
 export const GET: RequestHandler = async ({ params }) => {
 	const id = Number(params.id);
@@ -28,13 +38,13 @@ export const GET: RequestHandler = async ({ params }) => {
 		error(404, 'Archivo del script no disponible');
 	}
 
-	const ext = script.filename.toLowerCase().endsWith('.docx') ? '.docx' : '.doc';
+	const ext = extOf(script.filename);
 	const contentType = MIME[ext];
 
 	return new Response(buffer, {
 		headers: {
 			'Content-Type': contentType,
-			'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(script.originalName)}`
+			'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(script.originalName)}`
 		}
 	});
 };

@@ -1,7 +1,15 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import { Pencil, Check, X, GripVertical, Clapperboard } from '@lucide/svelte';
+	import {
+		Check,
+		Clapperboard,
+		GripVertical,
+		Loader2,
+		Pencil,
+		Trash2,
+		X
+	} from '@lucide/svelte';
 	import { dndzone } from 'svelte-dnd-action';
 	import { tilt } from '$lib/actions/tilt';
 	import type { PageProps } from './$types';
@@ -71,6 +79,28 @@
 		if (e.key === 'Escape') cancelEdit();
 	}
 
+	let deletingId = $state<number | null>(null);
+	let pendingDelete = $state<{ id: number; titulo: string } | null>(null);
+	let deleteFormEl: HTMLFormElement | undefined = $state();
+
+	function openDeleteConfirm(id: number, titulo: string) {
+		pendingDelete = { id, titulo };
+	}
+
+	function cancelDeleteConfirm() {
+		pendingDelete = null;
+	}
+
+	function confirmAndSubmitDelete() {
+		if (!pendingDelete) return;
+		deletingId = pendingDelete.id;
+		deleteFormEl?.requestSubmit();
+	}
+
+	function handleModalKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') cancelDeleteConfirm();
+	}
+
 	function handleConsider(e: CustomEvent<{ items: typeof items }>) {
 		dragging = true;
 		items = e.detail.items;
@@ -91,45 +121,47 @@
 </script>
 
 <section class="page">
-	<h1>Proyectos</h1>
+	<header class="header-row">
+		<h1>Proyectos</h1>
 
-	{#if !creating}
-		<button class="new-btn" onclick={() => (creating = true)}>
-			<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-				<path
-					d="M12 5v14M5 12h14"
-					stroke="currentColor"
-					stroke-width="2.5"
-					stroke-linecap="round"
-					fill="none"
+		{#if !creating}
+			<button class="new-btn" onclick={() => (creating = true)}>
+				<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+					<path
+						d="M12 5v14M5 12h14"
+						stroke="currentColor"
+						stroke-width="2.5"
+						stroke-linecap="round"
+						fill="none"
+					/>
+				</svg>
+				Nuevo Proyecto
+			</button>
+		{:else}
+			<form
+				method="POST"
+				action="?/create"
+				class="new-form"
+				use:enhance={() =>
+					async ({ update }) => {
+						await update({ reset: false });
+					}}
+			>
+				<input
+					bind:this={inputEl}
+					name="titulo"
+					type="text"
+					placeholder="Título del proyecto"
+					bind:value={titulo}
+					required
+					maxlength="200"
 				/>
-			</svg>
-			Nuevo Proyecto
-		</button>
-	{:else}
-		<form
-			method="POST"
-			action="?/create"
-			class="new-form"
-			use:enhance={() =>
-				async ({ update }) => {
-					await update({ reset: false });
-				}}
-		>
-			<input
-				bind:this={inputEl}
-				name="titulo"
-				type="text"
-				placeholder="Título del proyecto"
-				bind:value={titulo}
-				required
-				maxlength="200"
-			/>
-			<button type="submit" class="save-btn">Guardar</button>
-			<button type="button" class="cancel-btn" onclick={cancel}>Cancelar</button>
-		</form>
-		{#if form?.error}<p class="error">{form.error}</p>{/if}
-	{/if}
+				<button type="submit" class="save-btn">Guardar</button>
+				<button type="button" class="cancel-btn" onclick={cancel}>Cancelar</button>
+			</form>
+		{/if}
+	</header>
+	{#if form?.error}<p class="error">{form.error}</p>{/if}
 
 	<ul
 		class="list"
@@ -215,6 +247,19 @@
 						>
 							<Pencil size={15} strokeWidth={2.2} />
 						</button>
+						<button
+							type="button"
+							class="delete-btn"
+							aria-label="Borrar proyecto"
+							disabled={deletingId !== null}
+							onclick={() => openDeleteConfirm(p.id, p.titulo)}
+						>
+							{#if deletingId === p.id}
+								<Loader2 size={15} strokeWidth={2.2} class="spin" />
+							{:else}
+								<Trash2 size={15} strokeWidth={2.2} />
+							{/if}
+						</button>
 					</div>
 				{/if}
 			</li>
@@ -222,7 +267,67 @@
 			<li class="empty">Aún no has creado proyectos.</li>
 		{/each}
 	</ul>
+
+	<form
+		bind:this={deleteFormEl}
+		method="POST"
+		action="?/delete"
+		class="delete-form"
+		use:enhance={() =>
+			async ({ update }) => {
+				await update({ reset: false });
+				deletingId = null;
+				pendingDelete = null;
+			}}
+	>
+		<input type="hidden" name="id" value={pendingDelete?.id ?? ''} />
+	</form>
 </section>
+
+{#if pendingDelete}
+	<div
+		class="modal-backdrop"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="delete-modal-title"
+		tabindex="-1"
+		onkeydown={handleModalKeydown}
+		onclick={(e) => {
+			if (e.target === e.currentTarget) cancelDeleteConfirm();
+		}}
+	>
+		<div class="modal-card">
+			<h2 id="delete-modal-title" class="modal-title">Borrar proyecto</h2>
+			<p class="modal-body">
+				¿Borrar el proyecto <strong>"{pendingDelete.titulo}"</strong>?
+			</p>
+			<p class="modal-warning">
+				Esto elimina TODO lo que cuelga de él: script, escenas, personajes,
+				escenarios, elementos, tomas e historial de versiones. No se puede
+				deshacer.
+			</p>
+			<div class="modal-actions">
+				<button type="button" class="modal-btn cancel" onclick={cancelDeleteConfirm}>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					class="modal-btn confirm"
+					onclick={confirmAndSubmitDelete}
+					disabled={deletingId !== null}
+				>
+					{#if deletingId !== null}
+						<Loader2 size={15} strokeWidth={2.2} class="spin" />
+						<span>Borrando…</span>
+					{:else}
+						<Trash2 size={15} strokeWidth={2.2} />
+						<span>Borrar</span>
+					{/if}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <style>
 	.page {
@@ -231,9 +336,17 @@
 	}
 
 	h1 {
-		margin: 0 0 1.5rem;
+		margin: 0;
 		font-size: 1.75rem;
 		letter-spacing: -0.01em;
+	}
+
+	.header-row {
+		display: flex;
+		align-items: center;
+		gap: 1.25rem;
+		flex-wrap: wrap;
+		margin-bottom: 1.5rem;
 	}
 
 	.new-btn,
@@ -394,6 +507,187 @@
 		background: rgba(255, 255, 255, 0.08);
 		color: rgba(255, 255, 255, 0.95);
 		border-color: rgba(255, 255, 255, 0.14);
+	}
+
+	.card-meta form {
+		margin: 0;
+		display: inline-flex;
+	}
+
+	.delete-btn {
+		background: transparent;
+		border: 1px solid transparent;
+		border-radius: 6px;
+		padding: 0.3rem;
+		color: rgba(255, 255, 255, 0.4);
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		font: inherit;
+		transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+	}
+
+	.delete-btn:hover:not(:disabled) {
+		background: rgba(220, 38, 38, 0.16);
+		color: #fca5a5;
+		border-color: rgba(220, 38, 38, 0.4);
+	}
+
+	.delete-btn:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+
+	.delete-btn :global(.spin) {
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes -global-spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.delete-form {
+		display: none;
+	}
+
+	:global(.modal-backdrop) {
+		position: fixed;
+		inset: 0;
+		z-index: 100;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 1.5rem;
+		background: rgba(10, 25, 41, 0.7);
+		backdrop-filter: blur(8px) saturate(120%);
+		-webkit-backdrop-filter: blur(8px) saturate(120%);
+		animation: modal-fade-in 0.18s ease-out;
+	}
+
+	@keyframes -global-modal-fade-in {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+
+	:global(.modal-card) {
+		max-width: 480px;
+		width: 100%;
+		padding: 1.5rem 1.75rem;
+		background: rgba(255, 255, 255, 0.06);
+		backdrop-filter: blur(20px) saturate(130%);
+		-webkit-backdrop-filter: blur(20px) saturate(130%);
+		border: 1px solid rgba(255, 255, 255, 0.18);
+		border-radius: 16px;
+		box-shadow: 0 24px 48px rgba(0, 0, 0, 0.42);
+		animation: modal-card-pop 0.22s cubic-bezier(0.2, 0.8, 0.3, 1.1);
+	}
+
+	@keyframes -global-modal-card-pop {
+		from {
+			transform: translateY(8px) scale(0.96);
+			opacity: 0;
+		}
+		to {
+			transform: translateY(0) scale(1);
+			opacity: 1;
+		}
+	}
+
+	:global(.modal-title) {
+		margin: 0 0 0.85rem;
+		font-size: 1.2rem;
+		color: rgba(255, 255, 255, 0.98);
+		letter-spacing: -0.005em;
+	}
+
+	:global(.modal-body) {
+		margin: 0 0 0.65rem;
+		color: rgba(255, 255, 255, 0.92);
+		font-size: 0.95rem;
+		font-weight: 400;
+		line-height: 1.5;
+	}
+
+	:global(.modal-body strong) {
+		color: #fff;
+		font-weight: 700;
+	}
+
+	:global(.modal-warning) {
+		margin: 0 0 1.5rem;
+		padding: 0.7rem 0.9rem;
+		color: #fecaca;
+		background: rgba(220, 38, 38, 0.12);
+		border: 1px solid rgba(220, 38, 38, 0.32);
+		border-radius: 10px;
+		font-size: 0.86rem;
+		font-weight: 400;
+		line-height: 1.5;
+	}
+
+	:global(.modal-actions) {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.6rem;
+		flex-wrap: wrap;
+	}
+
+	:global(.modal-btn) {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.45rem;
+		padding: 0.65rem 1.1rem;
+		font: inherit;
+		font-size: 0.9rem;
+		border-radius: 10px;
+		cursor: pointer;
+		transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease,
+			opacity 0.18s ease;
+	}
+
+	:global(.modal-btn.cancel) {
+		color: rgba(255, 255, 255, 0.95);
+		background: rgba(255, 255, 255, 0.05);
+		backdrop-filter: blur(10px) saturate(115%);
+		-webkit-backdrop-filter: blur(10px) saturate(115%);
+		border: 1px solid rgba(255, 255, 255, 0.18);
+	}
+
+	:global(.modal-btn.cancel:hover) {
+		background: rgba(255, 255, 255, 0.1);
+		border-color: rgba(255, 255, 255, 0.28);
+	}
+
+	:global(.modal-btn.confirm) {
+		color: #fff;
+		background: #dc2626;
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		box-shadow: 0 4px 18px rgba(220, 38, 38, 0.4);
+	}
+
+	:global(.modal-btn.confirm:hover:not(:disabled)) {
+		background: #b91c1c;
+		border-color: rgba(255, 255, 255, 0.28);
+		box-shadow: 0 6px 22px rgba(220, 38, 38, 0.5);
+	}
+
+	:global(.modal-btn.confirm:disabled) {
+		opacity: 0.65;
+		cursor: not-allowed;
+	}
+
+	:global(.modal-btn .spin) {
+		animation: spin 1s linear infinite;
 	}
 
 	.open-btn {

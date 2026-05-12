@@ -1,5 +1,6 @@
 <script lang="ts">
 	import '@fontsource/roboto/700.css';
+	import { page } from '$app/state';
 	import favicon from '$lib/assets/favicon.svg';
 	import Sidebar from '$lib/Sidebar.svelte';
 	import TopNav from '$lib/TopNav.svelte';
@@ -8,8 +9,18 @@
 	let orientation = $state<'vertical' | 'horizontal'>('vertical');
 	let collapsed = $state(false);
 
-	let workTiltX = $state(0);
-	let workTiltY = $state(0);
+	// La barra lateral solo es útil cuando estamos DENTRO de un proyecto (muestra Historia,
+	// Personajes, etc.). En el root, en el índice de proyectos, o en cualquier otra ruta
+	// sin contexto de proyecto, se retrae. Al entrar a un proyecto se expande automáticamente.
+	// Dentro de un proyecto se respeta el toggle manual entre páginas hermanas porque el
+	// $derived memoiza y el $effect no re-dispara mientras `isInProject` no cambie.
+	const isInProject = $derived(
+		(page.data as { proyecto?: { id: number } }).proyecto != null
+	);
+
+	$effect(() => {
+		collapsed = !isInProject;
+	});
 
 	function withTransition(fn: () => void) {
 		if (typeof document !== 'undefined' && 'startViewTransition' in document) {
@@ -30,20 +41,6 @@
 			collapsed = !collapsed;
 		});
 	}
-
-	function workMove(e: MouseEvent) {
-		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-		const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-		const ny = ((e.clientY - rect.top) / rect.height) * 2 - 1;
-		const MAX = 1.2;
-		workTiltX = -ny * MAX;
-		workTiltY = nx * MAX;
-	}
-
-	function workLeave() {
-		workTiltX = 0;
-		workTiltY = 0;
-	}
 </script>
 
 <svelte:head>
@@ -52,12 +49,7 @@
 
 <TopNav />
 <Sidebar {orientation} {collapsed} {toggleOrientation} {toggleCollapsed} />
-<main
-	class="{orientation}{collapsed ? ' collapsed' : ''}"
-	style="transform: perspective(1400px) rotateX({workTiltX}deg) rotateY({workTiltY}deg);"
-	onmousemove={workMove}
-	onmouseleave={workLeave}
->
+<main class="{orientation}{collapsed ? ' collapsed' : ''}">
 	<div class="work-scroll">
 		{@render children()}
 	</div>
@@ -130,8 +122,7 @@
 			inset 0 1px 0 rgba(255, 255, 255, 0.08),
 			0 4px 16px rgba(0, 0, 0, 0.12);
 		overflow: hidden;
-		transition: transform 0.18s ease-out, left 0.22s ease-out;
-		will-change: transform;
+		transition: left 0.22s ease-out;
 	}
 
 	.work-scroll {

@@ -19,6 +19,7 @@ erDiagram
         int id PK
         string titulo
         int position
+        int duracionEstimadaSegundos "nullable"
         timestamp createdAt
     }
 
@@ -27,6 +28,7 @@ erDiagram
         int proyectoId FK
         int numero
         string titulo
+        int duracionSegundos "nullable"
     }
 
     Escena {
@@ -59,6 +61,15 @@ erDiagram
     Toma {
         int id PK
         int escenaId FK
+        int numero
+        string tipoToma "shot scale"
+        string composicion "layout en cuadro"
+        string encuadre
+        string descripcion
+        string movimientoCamara
+        int duracionSegundos "nullable"
+        string source "ai|manual"
+        int position
     }
 ```
 
@@ -85,13 +96,13 @@ erDiagram
 
 ## Estado de cada entidad
 
-- **Proyecto** — schema implementado en SQLite ([src/lib/server/db/schema.ts](../src/lib/server/db/schema.ts)). Campos: `id`, `titulo`, `position`, `createdAt`.
-- **Acto** — schema **implementado** como tabla propia. Campos: `id`, `proyectoId` (FK), `numero`, `titulo`, `createdAt`. Backfill desde columnas legacy `acto_numero`/`acto_titulo` aplicado en migration 0006.
+- **Proyecto** — schema implementado en SQLite ([src/lib/server/db/schema.ts](../src/lib/server/db/schema.ts)). Campos: `id`, `titulo`, `position`, `duracionEstimadaSegundos` (nullable, agregado en 0018), `createdAt`. La duración estimada del proyecto la rellena el agente principal de build (gap-fill: solo se setea si está null, edit manual gana). Cuando se setea, propaga en cascade hacia abajo: si un acto no tiene duración propia, los conteos derivados de escena la dividen entre el total de escenas del proyecto.
+- **Acto** — schema **implementado** como tabla propia. Campos: `id`, `proyectoId` (FK), `numero`, `titulo`, `duracionSegundos` (nullable, agregado en 0017), `createdAt`. Backfill desde columnas legacy `acto_numero`/`acto_titulo` aplicado en migration 0006. La duración es editable desde Historia y nullable mientras el usuario no la define; cuando todos los actos del proyecto tienen duración, la meta de Historia muestra el total runtime sumado.
 - **Escenario** — schema **implementado** como tabla propia. Campos: `id`, `proyectoId` (FK), `nombre`, `createdAt`. Constraint de unicidad `(proyectoId, nombre)`. La AI emite `escenario` canónico (sin INT/EXT ni tiempo) — distintos slugs del mismo lugar (DÍA/NOCHE) consolidan a un único `Escenario`.
 - **Personaje** — schema **implementado** como tabla propia. Campos: `id`, `proyectoId` (FK), `nombre`, `createdAt`. Constraint de unicidad `(proyectoId, nombre)`. La relación con `Escena` se modela a través de `Participacion`.
 - **Escena** — schema **implementado** con FKs normalizadas: `actoId` y `escenarioId`. Campos: `id`, `proyectoId` (legacy, conservado), `actoId`, `escenarioId`, `numero`, `titulo`, `encabezado` (slug original como referencia), `descripcion`, `createdAt`. Personajes vía `Participacion`. **Columnas legacy aún presentes** (`personajes` JSON, `actoNumero`, `actoTitulo`) — se siguen poblando por compatibilidad pero no se leen; pendiente migration de cleanup.
 - **Participacion** — schema **implementado** como tabla intermedia con nombre. Migración 0007 renombró `escenas_personajes` → `participaciones` preservando los 33 registros y sus FKs.
-- **Toma** — pendiente de definir campos y crear schema.
+- **Toma** — schema **implementado** como tabla propia (migration 0016). Campos: `id`, `escenaId` (FK cascade), `numero`, `tipoToma` (shot scale: general/medio/primer/detalle/etc., renombrado en 0019), `composicion` (distribución dentro del cuadro: centrada/regla de tercios/simétrica/etc., agregado en 0020), `encuadre`, `descripcion`, `movimientoCamara`, `duracionSegundos` (nullable), `source` ('ai'|'manual'), `position`, `createdAt`. Las tomas se generan con un **segundo agente dedicado** que opera por escena (no por proyecto entero), recibiendo el `escena.texto` verbatim como input. El UPSERT respeta el patrón establecido en otras entidades: las tomas `source='manual'` nunca se tocan; las `source='ai'` se reemplazan en cada regeneración para esa escena. `tipoToma` y `composicion` son ejes ortogonales — el primero responde "¿qué tan cerca?" (escala), el segundo "¿cómo está arreglado dentro del cuadro?" (layout).
 
 ## Notas
 

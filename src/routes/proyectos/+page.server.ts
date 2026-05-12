@@ -1,4 +1,4 @@
-import { fail } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { asc, desc, eq, min } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { proyectos } from '$lib/server/db/schema';
@@ -26,8 +26,12 @@ export const actions: Actions = {
 			.from(proyectos);
 		const newPos = (minPos ?? 0) - 1;
 
-		await db.insert(proyectos).values({ titulo, position: newPos });
-		return { success: true };
+		const [created] = await db
+			.insert(proyectos)
+			.values({ titulo, position: newPos })
+			.returning({ id: proyectos.id });
+
+		redirect(303, `/proyectos/${created.id}/historia`);
 	},
 
 	update: async ({ request }) => {
@@ -43,6 +47,21 @@ export const actions: Actions = {
 		}
 
 		await db.update(proyectos).set({ titulo }).where(eq(proyectos.id, id));
+		return { success: true };
+	},
+
+	delete: async ({ request }) => {
+		const data = await request.formData();
+		const id = Number(data.get('id'));
+
+		if (!Number.isFinite(id) || id <= 0) {
+			return fail(400, { error: 'id inválido' });
+		}
+
+		// FK cascade limpia scripts, actos, escenas, escenarios, personajes, elementos,
+		// participaciones, tomas, script_builds — todo lo que cuelga del proyecto.
+		await db.delete(proyectos).where(eq(proyectos.id, id));
+
 		return { success: true };
 	},
 

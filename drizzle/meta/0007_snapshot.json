@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "bd4a273b-9f0b-48e4-998c-8d2be1830b7f",
-  "prevId": "c618394c-23c2-41b6-9bd1-ee75168f356c",
+  "id": "3ea38c57-3691-4726-855f-feda4d92f33d",
+  "prevId": "bd4a273b-9f0b-48e4-998c-8d2be1830b7f",
   "tables": {
     "actos": {
       "name": "actos",

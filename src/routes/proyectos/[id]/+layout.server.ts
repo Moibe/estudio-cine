@@ -1,13 +1,15 @@
 import { error } from '@sveltejs/kit';
-import { asc, eq } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
 	actos,
+	elementos,
 	escenarios,
 	escenas,
 	participaciones,
 	personajes,
-	proyectos
+	proyectos,
+	scripts
 } from '$lib/server/db/schema';
 import type { LayoutServerLoad } from './$types';
 
@@ -27,12 +29,14 @@ export const load: LayoutServerLoad = async ({ params }) => {
 			titulo: escenas.titulo,
 			encabezado: escenas.encabezado,
 			descripcion: escenas.descripcion,
+			texto: escenas.texto,
 			createdAt: escenas.createdAt,
 			actoId: escenas.actoId,
 			actoNumero: actos.numero,
 			actoTitulo: actos.titulo,
 			escenarioId: escenas.escenarioId,
-			escenarioNombre: escenarios.nombre
+			escenarioNombre: escenarios.nombre,
+			escenarioFoto: escenarios.foto
 		})
 		.from(escenas)
 		.leftJoin(actos, eq(escenas.actoId, actos.id))
@@ -44,17 +48,22 @@ export const load: LayoutServerLoad = async ({ params }) => {
 	const cast = await db
 		.select({
 			escenaId: participaciones.escenaId,
-			personajeNombre: personajes.nombre
+			personajeId: personajes.id,
+			personajeNombre: personajes.nombre,
+			personajeFoto: personajes.foto
 		})
 		.from(participaciones)
 		.innerJoin(personajes, eq(participaciones.personajeId, personajes.id))
 		.innerJoin(escenas, eq(participaciones.escenaId, escenas.id))
 		.where(eq(escenas.proyectoId, id));
 
-	const personajesByEscena = new Map<number, string[]>();
+	const personajesByEscena = new Map<
+		number,
+		Array<{ id: number; nombre: string; foto: string | null }>
+	>();
 	for (const c of cast) {
 		const arr = personajesByEscena.get(c.escenaId) ?? [];
-		arr.push(c.personajeNombre);
+		arr.push({ id: c.personajeId, nombre: c.personajeNombre, foto: c.personajeFoto });
 		personajesByEscena.set(c.escenaId, arr);
 	}
 
@@ -68,21 +77,50 @@ export const load: LayoutServerLoad = async ({ params }) => {
 
 	// Listas a nivel proyecto, útiles para las páginas /personajes y /escenarios
 	const escenariosList = await db
-		.select()
+		.select({
+			id: escenarios.id,
+			proyectoId: escenarios.proyectoId,
+			nombre: escenarios.nombre,
+			descripcion: escenarios.descripcion,
+			foto: escenarios.foto,
+			createdAt: escenarios.createdAt
+		})
 		.from(escenarios)
 		.where(eq(escenarios.proyectoId, id))
-		.orderBy(asc(escenarios.nombre));
+		.orderBy(asc(escenarios.position), desc(escenarios.id));
 
 	const personajesList = await db
 		.select()
 		.from(personajes)
 		.where(eq(personajes.proyectoId, id))
-		.orderBy(asc(personajes.nombre));
+		.orderBy(asc(personajes.position), desc(personajes.id));
+
+	const elementosList = await db
+		.select()
+		.from(elementos)
+		.where(eq(elementos.proyectoId, id))
+		.orderBy(asc(elementos.position), desc(elementos.id));
+
+	const [script] = await db.select().from(scripts).where(eq(scripts.proyectoId, id));
+
+	const actosList = await db
+		.select({
+			id: actos.id,
+			numero: actos.numero,
+			titulo: actos.titulo,
+			duracionSegundos: actos.duracionSegundos
+		})
+		.from(actos)
+		.where(eq(actos.proyectoId, id))
+		.orderBy(asc(actos.numero));
 
 	return {
 		proyecto,
+		script: script ?? null,
+		actos: actosList,
 		escenas: escenasWithCast,
 		escenarios: escenariosList,
-		personajes: personajesList
+		personajes: personajesList,
+		elementos: elementosList
 	};
 };

@@ -6,6 +6,7 @@ import mammoth from 'mammoth';
 import { UPLOADS_DIR } from '$env/static/private';
 import { db } from '$lib/server/db';
 import { proyectos, scripts } from '$lib/server/db/schema';
+import { getScriptExt } from '$lib/server/script-text';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -17,6 +18,13 @@ export const load: PageServerLoad = async ({ params }) => {
 
 	const [script] = await db.select().from(scripts).where(eq(scripts.proyectoId, id));
 	if (!script) error(404, 'No hay script subido para este proyecto');
+
+	const ext = getScriptExt(script.filename);
+
+	// PDFs no se convierten a HTML — el <iframe> los renderiza nativo
+	if (ext === '.pdf') {
+		return { proyecto, script, ext, html: null };
+	}
 
 	const filepath = path.join(UPLOADS_DIR, 'scripts', script.filename);
 
@@ -32,6 +40,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	return {
 		proyecto,
 		script,
+		ext,
 		html: result.value
 	};
 };
